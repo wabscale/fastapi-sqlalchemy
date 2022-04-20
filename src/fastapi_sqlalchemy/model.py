@@ -2,6 +2,7 @@ import re
 
 import sqlalchemy as sa
 from sqlalchemy import inspect
+from sqlalchemy.orm.query import Query
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.schema import _get_table_key
@@ -127,7 +128,7 @@ class Model:
     #: Convenience property to query the database for instances of this model
     # using the current session. Equivalent to ``db.session.query(Model)``
     # unless :attr:`query_class` has been changed.
-    query = None
+    query: Query = None
 
     def __repr__(self):
         identity = inspect(self).identity

@@ -10,9 +10,10 @@ from sqlalchemy import orm
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.orm.session import Session as SessionBase
+from fastapi.applications import FastAPI
 
-from .model import DefaultMeta
-from .model import Model
+from fastapi_sqlalchemy.model import DefaultMeta
+from fastapi_sqlalchemy.model import Model
 
 try:
     from sqlalchemy.orm import declarative_base
@@ -373,8 +374,8 @@ class SQLAlchemy:
     ):
 
         self.Query = query_class
-        self.session = self.create_scoped_session(session_options)
-        self.Model = self.make_declarative_base(model_class, metadata)
+        self.session: orm.scoped_session = self.create_scoped_session(session_options)
+        self.Model: declarative_base = self.make_declarative_base(model_class, metadata)
         self._engine_lock = Lock()
         self.app = app
         self.config = {}
@@ -390,7 +391,7 @@ class SQLAlchemy:
 
         return self.Model.metadata
 
-    def create_scoped_session(self, options=None):
+    def create_scoped_session(self, options=None) -> orm.scoped_session:
         """Create a :class:`~sqlalchemy.orm.scoping.scoped_session`
         on the factory from :meth:`create_session`.
 
@@ -458,7 +459,7 @@ class SQLAlchemy:
         model.query = _QueryProperty(self)
         return model
 
-    def init_app(self, app, config):
+    def init_app(self, app: FastAPI, config: dict):
         """This callback can be used to initialize an application for the
         use with this database setup.  Never use a database in the context
         of an application not initialized that way or connections will
@@ -488,8 +489,8 @@ class SQLAlchemy:
         setdefault(config, "SQLALCHEMY_TRACK_MODIFICATIONS", False)
         setdefault(config, "SQLALCHEMY_ENGINE_OPTIONS", {})
 
-        self.app = app
-        self.config = config
+        self.app: FastAPI = app
+        self.config: dict = config
         app.state.sqlalchemy = _SQLAlchemyState(self)
         app.state.sa_config = config
 
@@ -563,11 +564,11 @@ class SQLAlchemy:
 
             # If the database path is not absolute, it's relative to the
             # app instance path, which might need to be created.
-            if not detected_in_memory and not os.path.isabs(sa_url.database):
-                os.makedirs(app.instance_path, exist_ok=True)
-                sa_url = _sa_url_set(
-                    sa_url, database=os.path.join(app.root_path, sa_url.database)
-                )
+            # if not detected_in_memory and not os.path.isabs(sa_url.database):
+            #     os.makedirs(app.instance_path, exist_ok=True)
+            #     sa_url = _sa_url_set(
+            #         sa_url, database=os.path.join(app.root_path, sa_url.database)
+            #     )
 
         return sa_url, options
 
