@@ -494,9 +494,8 @@ class SQLAlchemy:
         app.state.sqlalchemy = _SQLAlchemyState(self)
         app.state.sa_config = config
 
-        @app.middleware("http")
-        async def db_session_middleware(request, call_next):
-            response_or_exc = await call_next(request)
+        @app.on_event("shutdown")
+        async def db_session_middleware():
             if config["SQLALCHEMY_COMMIT_ON_TEARDOWN"]:
                 warnings.warn(
                     "'COMMIT_ON_TEARDOWN' is deprecated and will be"
@@ -505,11 +504,9 @@ class SQLAlchemy:
                     DeprecationWarning,
                 )
 
-                if response_or_exc is None:
-                    self.session.commit()
+                self.session.commit()
 
             self.session.remove()
-            return response_or_exc
 
     def apply_driver_hacks(self, app, sa_url, options):
         """This method is called before engine creation and used to inject
