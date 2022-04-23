@@ -203,7 +203,7 @@ class _EngineConnector:
         self._bind = bind
         self._lock = Lock()
 
-    def get_uri(self):
+    def get_uri(self) -> str:
         if self._bind is None:
             return self._app.state.sa_config["SQLALCHEMY_DATABASE_URI"]
         binds = self._app.state.sa_config.get("SQLALCHEMY_BINDS") or ()
@@ -212,7 +212,7 @@ class _EngineConnector:
         ), f"Bind {self._bind!r} is not configured in 'SQLALCHEMY_BINDS'."
         return binds[self._bind]
 
-    def get_engine(self):
+    def get_engine(self) -> sqlalchemy.engine.Engine:
         with self._lock:
             uri = self.get_uri()
             echo = self._app.state.sa_config["SQLALCHEMY_ECHO"]
@@ -429,7 +429,7 @@ class SQLAlchemy:
 
         return orm.sessionmaker(class_=SignallingSession, db=self, **options)
 
-    def make_declarative_base(self, model, metadata=None):
+    def make_declarative_base(self, model, metadata=None) -> sqlalchemy.orm.DeclarativeMeta:
         """Creates the declarative base that all models will inherit from.
 
         :param model: base model class (or a tuple of base classes) to pass
@@ -508,7 +508,7 @@ class SQLAlchemy:
 
             self.session.remove()
 
-    def apply_driver_hacks(self, app, sa_url, options):
+    def apply_driver_hacks(self, app: FastAPI, sa_url, options):
         """This method is called before engine creation and used to inject
         driver specific hacks into the options.  The `options` parameter is
         a dictionary of keyword arguments that will then be used to call
@@ -561,16 +561,17 @@ class SQLAlchemy:
 
             # If the database path is not absolute, it's relative to the
             # app instance path, which might need to be created.
-            # if not detected_in_memory and not os.path.isabs(sa_url.database):
-            #     os.makedirs(app.instance_path, exist_ok=True)
-            #     sa_url = _sa_url_set(
-            #         sa_url, database=os.path.join(app.root_path, sa_url.database)
-            #     )
+            if not detected_in_memory and not os.path.isabs(sa_url.database):
+                root_path = app.root_path or '.'
+                os.makedirs(root_path, exist_ok=True)
+                sa_url = _sa_url_set(
+                    sa_url, database=os.path.join(root_path, sa_url.database)
+                )
 
         return sa_url, options
 
     @property
-    def engine(self):
+    def engine(self) -> sqlalchemy.engine.Engine:
         """Gives access to the engine.  If the database configuration is bound
         to a specific application (initialized with an application) this will
         always return a database connection.  If however the current application
@@ -579,11 +580,11 @@ class SQLAlchemy:
         """
         return self.get_engine()
 
-    def make_connector(self, app=None, bind=None):
+    def make_connector(self, app=None, bind=None) -> _EngineConnector:
         """Creates the connector for a given state and bind."""
         return _EngineConnector(self, self.get_app(app), bind)
 
-    def get_engine(self, app=None, bind=None):
+    def get_engine(self, app=None, bind=None) -> sqlalchemy.engine.Engine:
         """Returns a specific engine."""
 
         app = self.get_app(app)
@@ -598,7 +599,7 @@ class SQLAlchemy:
 
             return connector.get_engine()
 
-    def create_engine(self, sa_url, engine_opts):
+    def create_engine(self, sa_url, engine_opts) -> sqlalchemy.engine.Engine:
         """Override this method to have final say over how the
         SQLAlchemy engine is created.
 
@@ -608,7 +609,7 @@ class SQLAlchemy:
         """
         return sqlalchemy.create_engine(sa_url, **engine_opts)
 
-    def get_app(self, reference_app=None):
+    def get_app(self, reference_app=None) -> FastAPI:
         """Helper method that implements the logic to look up an
         application."""
 
