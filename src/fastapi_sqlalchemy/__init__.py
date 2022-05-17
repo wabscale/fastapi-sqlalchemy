@@ -11,6 +11,7 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.orm.session import Session as SessionBase
 from fastapi.applications import FastAPI
+from fastapi.requests import Request
 
 from fastapi_sqlalchemy.model import DefaultMeta
 from fastapi_sqlalchemy.model import Model
@@ -362,6 +363,7 @@ class SQLAlchemy:
     #: Customize this by passing ``query_class`` to :func:`SQLAlchemy`.
     #: Defaults to :class:`BaseQuery`.
     Query = None
+    session: SessionBase
 
     def __init__(
         self,
@@ -494,19 +496,22 @@ class SQLAlchemy:
         app.state.sqlalchemy = _SQLAlchemyState(self)
         app.state.sa_config = config
 
-        @app.on_event("shutdown")
-        async def db_session_middleware():
-            if config["SQLALCHEMY_COMMIT_ON_TEARDOWN"]:
-                warnings.warn(
-                    "'COMMIT_ON_TEARDOWN' is deprecated and will be"
-                    " removed in version 3.1. Call"
-                    " 'db.session.commit()'` directly instead.",
-                    DeprecationWarning,
-                )
+        @app.middleware("http")
+        async def db_session_middleware(request: Request, call_next):
+            try:
+                response = await call_next(request)
+                if config["SQLALCHEMY_COMMIT_ON_TEARDOWN"]:
+                    warnings.warn(
+                        "'COMMIT_ON_TEARDOWN' is deprecated and will be"
+                        " removed in version 3.1. Call"
+                        " 'db.session.commit()'` directly instead.",
+                        DeprecationWarning,
+                    )
 
-                self.session.commit()
-
-            self.session.remove()
+                    self.session.commit()
+                return response
+            finally:
+                self.session.remove()
 
     def apply_driver_hacks(self, app: FastAPI, sa_url, options):
         """This method is called before engine creation and used to inject
