@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import os
 import sys
@@ -24,12 +25,7 @@ except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.ext.declarative import DeclarativeMeta
 
-# Scope the session to the current greenlet if greenlet is available,
-# otherwise fall back to the current thread.
-try:
-    from greenlet import getcurrent as _ident_func
-except ImportError:
-    from threading import get_ident as _ident_func
+from threading import get_ident as _ident_func
 
 __version__ = "3.0.0.dev0"
 
@@ -384,9 +380,6 @@ class SQLAlchemy:
         self._engine_options = engine_options or {}
         _include_sqlalchemy(self, query_class)
 
-        if app is not None:
-            self.init_app(app)
-
     @property
     def metadata(self):
         """The metadata associated with ``db.Model``."""
@@ -499,6 +492,9 @@ class SQLAlchemy:
         @app.middleware("http")
         async def db_session_middleware(request: Request, call_next):
             try:
+                self.session.rollback()
+                self.session.flush()
+                self.session.expire_all()
                 response = await call_next(request)
                 if config["SQLALCHEMY_COMMIT_ON_TEARDOWN"]:
                     warnings.warn(
